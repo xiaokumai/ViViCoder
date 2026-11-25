@@ -1,0 +1,55 @@
+# config.yaml
+model:
+  model: "gpt-4o-mini" # e.g., gpt-4o, gpt-4o-mini, gpt-3.5-turbo, gpt-5-2025-08-07, codellama-70b-instruct, claude-haiku-4-5-20251001, qwen3-coder-480b-a35b-instruct, qwen3-coder-plus
+  temperature: 0.8
+  top_p: 0.95
+  # model_provider: "openai"
+  # max_tokens: 300
+
+evaluation:
+  num_workers: 20 # Number of parallel workers for evaluation
+  num_tasks: -1 # Number of tasks to evaluate; set to -1 to evaluate all tasks
+  k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] # Values of k for pass@k metric
+
+# Agent strategies issue multiple API calls per task.  Keep their concurrency
+# independent from evaluation.num_workers, which is safe for one-shot methods
+# such as vanilla but can otherwise trigger provider rate limits.
+agent_limits:
+  codex: 1
+  openhands: 1
+  flowgen: 1
+
+# FlowGen supports: rawgpt, waterfall, testdriven (or tdd), and scrum.
+flowgen:
+  workflow: "scrum"
+
+# humaneval, humaneval-et, mhpp, livecodebench, evocodebench,
+# contests_python, contests_cpp, contests_java
+dataset:
+  name: "livecodebench"
+  num_samples: 10
+
+# ViViCoder target language: python, cpp, or java. The contests_cpp and
+# contests_java benchmark aliases override this value for their own tasks.
+language: "python"
+
+# Local installation used for repository-level candidate execution and agent
+# workspaces. Runtime loading uses only the sanitized feedback metadata below;
+# it never reads EvoCodeBench's official data.jsonl/full test list.
+evocodebench:
+  processed_file: "benchmark/evocodebench/processed.json"
+  feedback_metadata_file: "benchmark/evocodebench/feedback_metadata.jsonl"
+  # Shuffle before applying evaluation.num_tasks. A fixed seed keeps resumed
+  # runs reproducible while reducing repository-clustered worker batches.
+  shuffle: true
+  shuffle_seed: 43
+  test_timeout: 120
+  max_feedback_chars: 12000
+
+strategy: "ViViCoder" # vanilla, CoT, SelfPlanning, Analogical, MapCoder, CodeSIM, TraceCoder, ViViCoder, paircoder, evomac,chatdev, ldb,openhands,codex,flowgen
+generated_file: ""
+
+env: ".env"
+
+debug: 5
+attempt: 5

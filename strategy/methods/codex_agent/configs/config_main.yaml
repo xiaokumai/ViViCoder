@@ -1,0 +1,11 @@
+conda_env: codex
+python_executable: ""
+workspace_root: ""
+run_timeout: 900
+result_filename: solution.py
+max_prompt_chars: 60000
+# Per-task budget across input and output tokens. Codex is interrupted when
+# runtime usage reaches this value.
+max_total_tokens: 200000
+model_provider: proxy
+wire_api: responses

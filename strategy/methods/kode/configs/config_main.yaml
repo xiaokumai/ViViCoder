@@ -1,0 +1,9 @@
+max_turns: 20
+bash_timeout: 120
+validation_timeout: 60
+context_limit: 50000
+persist_threshold: 30000
+preview_chars: 2000
+keep_recent_tool_results: 3
+enable_subagent: true
+base_runs_dir: null

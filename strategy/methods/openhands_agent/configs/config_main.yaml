@@ -1,0 +1,12 @@
+conda_env: openhands
+python_executable: ""
+workspace_root: ""
+run_timeout: 900
+result_filename: solution.py
+log_filename: openhands.log
+max_prompt_chars: 60000
+max_total_tokens: 200000
+model_prefix: openai
+# Avoid the SDK's auto-selected tmux backend.  It is unnecessary for one
+# isolated benchmark task and may be unavailable in restricted containers.
+terminal_type: subprocess

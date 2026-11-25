@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>ViViCoder Case Study: Trace-Driven Repair of First Duplicate</title>
+  <style>
+    :root {
+      --ink: #172238;
+      --muted: #647087;
+      --paper: #f6f8fc;
+      --card: #ffffff;
+      --line: #dce3ee;
+      --blue: #2868d7;
+      --blue-soft: #edf4ff;
+      --teal: #0b8374;
+      --teal-soft: #e9f8f4;
+      --red: #bb3946;
+      --red-soft: #fff0f1;
+      --green: #147d54;
+      --green-soft: #eaf7f0;
+      --orange: #b95a20;
+      --orange-soft: #fff2e8;
+      --navy: #182944;
+      --shadow: 0 12px 36px rgba(31, 49, 83, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font: 15px/1.68 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { font-size: .92em; }
+    .page { width: min(980px, calc(100% - 36px)); margin: 0 auto; padding: 48px 0 64px; }
+
+    header { margin-bottom: 28px; }
+    .overline {
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 8px 0 10px;
+      font-size: clamp(31px, 5vw, 47px);
+      line-height: 1.1;
+      letter-spacing: -.035em;
+    }
+    .subtitle { max-width: 820px; margin: 0; color: var(--muted); font-size: 16px; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      margin: 24px 0 32px;
+    }
+    .flow div {
+      position: relative;
+      padding: 10px 9px;
+      border: 1px solid #cad8ef;
+      border-radius: 10px;
+      color: #315a9f;
+      background: var(--blue-soft);
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .flow div:not(:last-child)::after {
+      content: "›";
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      z-index: 2;
+      color: #8291a9;
+      transform: translateY(-50%);
+    }
+
+    section { margin-top: 22px; }
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 21px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+    .step {
+      display: inline-block;
+      margin-bottom: 4px;
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    h2 { margin: 0; font-size: 21px; letter-spacing: -.015em; }
+    h3 { margin: 0 0 7px; font-size: 15px; }
+    .agent {
+      flex: 0 0 auto;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: #5e48a5;
+      background: #f1edff;
+      font-size: 10px;
+      font-weight: 850;
+    }
+    .content { padding: 19px 21px 22px; }
+    .content > :first-child { margin-top: 0; }
+    .content > :last-child { margin-bottom: 0; }
+
+    .io {
+      display: grid;
+      grid-template-columns: 1fr 34px 1fr;
+      align-items: stretch;
+      gap: 8px;
+      margin-bottom: 17px;
+    }
+    .io-box {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f9fafc;
+    }
+    .io-box b { display: block; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    .io-box span { color: var(--muted); font-size: 12px; }
+    .arrow { display: grid; place-items: center; color: var(--blue); font-size: 20px; font-weight: 900; }
+
+    .task-box {
+      padding: 17px 18px;
+      border: 1px solid #c8d8f2;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fff, #f3f7ff);
+    }
+    .task-box p { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
+    .task-box small { display: block; margin-bottom: 5px; color: var(--blue); font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
+
+    .two-col, .three-col { display: grid; gap: 13px; }
+    .two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .three-col { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mini {
+      padding: 14px 15px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+    }
+    .mini p, .mini ul { margin: 0; color: #435067; }
+    .mini ul { padding-left: 18px; }
+    .mini li + li { margin-top: 4px; }
+    .label {
+      display: inline-block;
+      margin-bottom: 7px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      color: #315da6;
+      background: var(--blue-soft);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: .06em;
+    }
+
+    .code-block {
+      margin-top: 13px;
+      overflow: hidden;
+      border: 1px solid #273955;
+      border-radius: 11px;
+      background: #101827;
+      color: #dbe7fa;
+    }
+    .code-title {
+      padding: 7px 11px;
+      border-bottom: 1px solid #293a56;
+      color: #9fb0cd;
+      background: #172238;
+      font-size: 10px;
+    }
+    pre { margin: 0; padding: 14px; overflow: auto; font-size: 12px; line-height: 1.58; tab-size: 4; }
+    .bad-line, .good-line { display: block; margin: 0 -14px; padding: 0 14px; }
+    .bad-line { color: #ffd4d8; background: rgba(187, 57, 70, .23); }
+    .good-line { color: #c8f3dc; background: rgba(20, 125, 84, .25); }
+    .comment { color: #8295b4; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 11px; }
+    table { width: 100%; min-width: 650px; border-collapse: collapse; font-size: 12px; }
+    th {
+      padding: 9px 11px;
+      color: #526078;
+      background: #f1f4f8;
+      text-align: left;
+      font-size: 9px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    td { padding: 10px 11px; border-top: 1px solid var(--line); vertical-align: top; }
+    .pass { color: var(--green); font-weight: 850; }
+    .fail { color: var(--red); font-weight: 850; }
+
+    .trace {
+      margin-top: 13px;
+      border-left: 4px solid var(--orange);
+    }
+    .finding {
+      margin-top: 13px;
+      padding: 13px 15px;
+      border: 1px solid #ebc5a9;
+      border-radius: 11px;
+      color: #6b3e25;
+      background: var(--orange-soft);
+    }
+    .finding b { color: #944313; }
+
+    .analysis {
+      padding: 20px 21px;
+      border: 1px solid #cce3d8;
+      border-radius: 16px;
+      background: var(--teal-soft);
+    }
+    .analysis h2 { color: #086c60; }
+    .analysis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 14px; }
+    .analysis-item { padding-left: 13px; border-left: 3px solid #72bbae; }
+    .analysis-item h3 { color: #0a695e; }
+    .analysis-item p { margin: 0; color: #3f5f5a; font-size: 13px; }
+
+    .result-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .result-strip span {
+      padding: 6px 9px;
+      border: 1px solid #c6e1d4;
+      border-radius: 999px;
+      color: var(--green);
+      background: var(--green-soft);
+      font-size: 10px;
+      font-weight: 850;
+    }
+
+    footer { margin-top: 27px; color: var(--muted); text-align: center; font-size: 10px; }
+
+    @media (max-width: 700px) {
+      .page { width: min(100% - 24px, 980px); padding-top: 28px; }
+      .flow { grid-template-columns: 1fr; }
+      .flow div:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -12px; transform: translateX(50%); }
+      .io, .two-col, .three-col, .analysis-grid { grid-template-columns: 1fr; }
+      .arrow { height: 22px; transform: rotate(90deg); }
+      .agent { display: none; }
+      .section-head, .content { padding-left: 15px; padding-right: 15px; }
+    }
+
+    @media print {
+      body { background: #fff; font-size: 11px; }
+      .page { width: 100%; padding: 0; }
+      .card { box-shadow: none; break-inside: avoid; }
+      .flow div { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Case Study</h1>
+    </header>
+
+    <div class="flow" aria-label="Case workflow">
+      <div>Requirement Engineer</div>
+      <div>System Architect</div>
+      <div>Software Developer</div>
+      <div>Design Verifier</div>
+      <div>Requirement Validator</div>
+    </div>
+
+    <section class="card">
+      <div class="section-head">
+        <div><span class="step">Step 1</span><h2>Requirement Engineer</h2></div>
+      </div>
+      <div class="content">
+        <div class="io">
+          <div class="io-box"><b>Input</b><span>Raw task statement and public tests</span></div>
+          <div class="arrow">→</div>
+          <div class="io-box"><b>Output</b><span>Completed requirement specification <code>r</code></span></div>
+        </div>
+        <div class="task-box">
+          <small>Task instance</small>
+          <p>Write a function to find the first duplicate element in a given array of integers.</p>
+          <div class="code-block">
+            <div class="code-title">Public tests provided with the task</div>
+            <pre>["assert find_first_duplicate(([1, 2, 3, 4, 4, 5]))==4", "assert find_first_duplicate([1, 2, 3, 4])==-1", "assert find_first_duplicate([1, 1, 2, 3, 3, 2, 2])==1"]</pre>
+          </div>
+        </div>
+        <div class="mini" style="margin-top:13px">
+          <span class="label">REQUIREMENT SPECIFICATION · r</span>
+          <ul>
+            <li><strong>Functionality:</strong> Scan from left to right and return the value whose second occurrence is encountered first.</li>
+            <li><strong>Input:</strong> A list of integers <code>arr</code>; the function must not modify the list.</li>
+            <li><strong>Output:</strong> The first duplicate value under encounter order, or <code>-1</code> when no duplicate exists.</li>
+            <li><strong>Performance:</strong> <code>O(n)</code> time with average <code>O(1)</code> membership checks and <code>O(n)</code> auxiliary space.</li>
+            <li><strong>Edge Cases:</strong> Empty or singleton input, no duplicates, adjacent duplicates, multiple duplicate groups, and negative or zero values.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div><span class="step">Step 2</span><h2>System Architect</h2></div>
+      </div>
+      <div class="content">
+        <div class="io">
+          <div class="io-box"><b>Input</b><span>Requirement <code>r</code>, retrieved knowledge <code>K</code>, feedback <code>ε = ∅</code></span></div>
+          <div class="arrow">→</div>
+          <div class="io-box"><b>Output</b><span>Reviewed code design <code>d</code></span></div>
+        </div>
+        <div class="two-col">
+          <div class="mini">
+            <span class="label">ALGORITHM AND DATA STRUCTURE</span>
+            <p>Use a hash set <code>seen</code> and a single left-to-right scan. Set membership and insertion are average <code>O(1)</code>, giving <code>O(n)</code> total time.</p>
+          </div>
+          <div class="mini">
+            <span class="label">WORKFLOW</span>
+            <ol style="margin:0;padding-left:19px;color:#435067">
+              <li>Initialize an empty set.</li>
+              <li>Read each value in encounter order.</li>
+              <li>Return the value if already in <code>seen</code>.</li>
+              <li>Otherwise add it to <code>seen</code>.</li>
+              <li>Return <code>-1</code> after the complete scan.</li>
+            </ol>
+          </div>
+        </div>
+        <div class="three-col" style="margin-top:13px">
+          <div class="mini">
+            <span class="label">INITIAL DESIGN</span>
+            <p>A one-pass hash-set solution is selected over a nested scan (<code>O(n²)</code>) and sorting, which would lose encounter-order semantics.</p>
+          </div>
+          <div class="mini">
+            <span class="label">KNOWLEDGE RETRIEVAL</span>
+            <p>Retrieved complexity knowledge confirms average constant-time set operations and linear worst-case storage.</p>
+          </div>
+          <div class="mini">
+            <span class="label">DATA-FLOW SIMULATION</span>
+            <p>For <code>[1,2,3,4,4,5]</code>: <code>{}</code> → <code>{1}</code> → <code>{1,2}</code> → <code>{1,2,3}</code> → <code>{1,2,3,4}</code> → return <code>4</code>.</p>
+          </div>
+        </div>
+        <div class="two-col" style="margin-top:13px">
+          <div class="mini">
+            <span class="label">DESIGN REVIEW</span>
+            <p>Invariant: before index <code>j</code>, <code>seen = set(arr[0:j])</code>. Therefore, the first membership hit is exactly the earliest second occurrence.</p>
+          </div>
+          <div class="mini">
+            <span class="label">DESIGN DECISION</span>
+            <p><strong>Valid.</strong> The simulated outputs match all public tests, the input is not mutated, and no redesign feedback is required.</p>
+          </div>
+        </div>
+        <div class="code-block">
+          <div class="code-title">Code design d</div>
+          <pre>seen = empty hash set
+for each num in arr from left to right:
+    if num is in seen:
+        return num
+    add num to seen
+return -1  <span class="comment"># executed only after the loop</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div><span class="step">Step 3</span><h2>Software Developer</h2></div>
+      </div>
+      <div class="content">
+        <div class="io">
+          <div class="io-box"><b>Input</b><span>Reviewed design <code>d</code> and requirement <code>r</code></span></div>
+          <div class="arrow">→</div>
+          <div class="io-box"><b>Output</b><span>Executable candidate code <code>c₀</code></span></div>
+        </div>
+        <div class="two-col">
+          <div class="mini">
+            <span class="label">TRANSLATION TARGET</span>
+            <p>Translate the approved set-based workflow into Python while preserving scan order, the loop invariant, and the post-loop sentinel return.</p>
+          </div>
+          <div class="mini">
+            <span class="label">IMPLEMENTATION STATUS</span>
+            <p>The generated code is syntactically valid and uses the intended data structure, but one indentation error changes its control flow.</p>
+          </div>
+        </div>
+        <div class="code-block">
+          <div class="code-title">Candidate implementation c₀</div>
+          <pre>def find_first_duplicate(arr):
+    seen = set()
+    for num in arr:
+        if num in seen:
+            return num
+        seen.add(num)
+<span class="bad-line">        return -1  <span class="comment"># Defect: exits after the first iteration</span></span></pre>
+        </div>
+        <p><strong>Design–implementation mismatch.</strong> Design <code>d</code> places <code>return -1</code> after the loop, whereas candidate <code>c₀</code> places it inside the loop. This preserves syntax but violates the reviewed control flow.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div><span class="step">Step 4</span><h2>Design Verifier</h2></div>
+      </div>
+      <div class="content">
+        <div class="io">
+          <div class="io-box"><b>Input</b><span>Candidate <code>c₀</code>, public tests <code>T<sub>pub</sub></code>, and shared operator <code>Φ<sub>trace</sub></code></span></div>
+          <div class="arrow">→</div>
+          <div class="io-box"><b>Output</b><span>Design-verified implementation <code>c<sub>ver</sub></code></span></div>
+        </div>
+        <div class="mini">
+          <span class="label">PUBLIC-TEST EXECUTION</span>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Test input</th><th>Expected</th><th>Observed from c₀</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><code>[1, 2, 3, 4, 4, 5]</code></td><td><code>4</code></td><td><code>-1</code></td><td class="fail">Failed</td></tr>
+                <tr><td><code>[1, 2, 3, 4]</code></td><td><code>-1</code></td><td><code>-1</code></td><td class="pass">Passed</td></tr>
+                <tr><td><code>[1, 1, 2, 3, 3, 2, 2]</code></td><td><code>1</code></td><td><code>-1</code></td><td class="fail">Failed</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="finding"><b>Trace-driven debugging is invoked inside the Design Verifier.</b> The public-test report shows that duplicates are missed, but cannot distinguish a set-update fault from premature termination. The verifier therefore calls <code>Φ<sub>trace</sub>(c₀, T<sub>pub</sub>)</code>.</div>
+        <div class="two-col" style="margin-top:13px">
+          <div class="code-block" style="margin-top:0">
+            <div class="code-title">Targeted probes injected by Φtrace</div>
+            <pre>for index, num in enumerate(arr):
+    log(index, num, seen)
+    duplicate = num in seen
+    log(duplicate)
+    if duplicate:
+        log("return", num)
+        return num
+    seen.add(num)
+    log("seen_after", seen)
+    log("return", -1)
+    return -1</pre>
+          </div>
+          <div class="code-block trace" style="margin-top:0">
+            <div class="code-title">Runtime trace τ₀</div>
+            <pre>input=[1,2,3,4,4,5]
+expected=4
+
+index=0
+num=1
+seen_before=[]
+duplicate=False
+seen_after=[1]
+return=-1
+
+visited_indices=[0]
+observed=-1</pre>
+          </div>
+        </div>
+        <div class="finding"><b>Trace-grounded diagnosis:</b> membership evaluation and set insertion are correct, but execution terminates at index <code>0</code>. The trace localizes the fault to the misplaced <code>return -1</code>.</div>
+        <div class="two-col" style="margin-top:13px">
+          <div class="code-block" style="margin-top:0">
+            <div class="code-title">Minimal repair</div>
+            <pre><span class="bad-line">-        return -1</span><span class="good-line">+    return -1</span></pre>
+          </div>
+          <div class="code-block" style="margin-top:0">
+            <div class="code-title">Design-verified implementation cver</div>
+            <pre>def find_first_duplicate(arr):
+    seen = set()
+    for num in arr:
+        if num in seen:
+            return num
+        seen.add(num)
+<span class="good-line">    return -1</span></pre>
+          </div>
+        </div>
+        <div class="result-strip"><span>Before: 1/3 public tests</span><span>After: 3/3 public tests</span><span>One trace-grounded edit</span><span>Design verified</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div><span class="step">Step 5</span><h2>Requirement Validator</h2></div>
+      </div>
+      <div class="content">
+        <div class="io">
+          <div class="io-box"><b>Input</b><span><code>c<sub>ver</sub></code>, requirement <code>r</code>, <code>T<sub>pub</sub></code>, and shared operator <code>Φ<sub>trace</sub></code></span></div>
+          <div class="arrow">→</div>
+          <div class="io-box"><b>Output</b><span>Requirement-validated final code <code>c*</code></span></div>
+        </div>
+        <div class="two-col">
+          <div class="mini">
+            <span class="label">PROPERTY GENERATION</span>
+            <p>Translate requirement <code>r</code> into constructive input families with known outcomes: unique arrays must return <code>-1</code>, while arrays built from a unique prefix followed by two selected repeats must return the first appended repeat.</p>
+          </div>
+          <div class="mini">
+            <span class="label">REGRESSION ANCHOR</span>
+            <p>Execute generated properties together with <code>T<sub>pub</sub></code>. Keeping the public tests in the union prevents a flawed generated property from regressing already verified behavior.</p>
+          </div>
+        </div>
+        <div class="code-block">
+          <div class="code-title">Property-based validation suite Tpbt</div>
+          <pre>from hypothesis import given, strategies as st
+
+<span class="comment"># Exclude -1 because it is the no-duplicate sentinel.</span>
+values = st.one_of(
+    st.integers(max_value=-2),
+    st.integers(min_value=0),
+)
+
+@st.composite
+def cases_with_known_first_duplicate(draw):
+    prefix = draw(st.lists(
+        values, min_size=2, max_size=30, unique=True
+    ))
+    first_index = draw(st.integers(
+        min_value=0, max_value=len(prefix) - 1
+    ))
+    offset = draw(st.integers(
+        min_value=1, max_value=len(prefix) - 1
+    ))
+    second_index = (first_index + offset) % len(prefix)
+    first_repeat = prefix[first_index]
+    second_repeat = prefix[second_index]
+    return prefix + [first_repeat, second_repeat], first_repeat
+
+@given(cases_with_known_first_duplicate())
+def test_first_duplicate_by_construction(case):
+    arr, expected = case
+    before = arr.copy()
+    assert find_first_duplicate(arr) == expected
+    assert arr == before
+
+@given(st.lists(values, max_size=30, unique=True))
+def test_no_duplicate_by_construction(arr):
+    before = arr.copy()
+    assert find_first_duplicate(arr) == -1
+    assert arr == before</pre>
+        </div>
+        <div class="finding"><b>No reference implementation is assumed.</b> Expected outputs follow directly from how each input is constructed: a unique list contains no duplicate, and appending a selected prefix value makes that value a duplicate at a known position. The validator therefore checks requirement-derived properties without re-implementing <code>find_first_duplicate</code>.</div>
+        <div class="mini" style="margin-top:13px">
+          <span class="label">SHARED TRACE-DRIVEN DEBUGGING · Φtrace</span>
+          <p>The Requirement Validator invokes the same debugging operator over <code>T<sub>pub</sub> ∪ T<sub>pbt</sub></code>. Any counterexample triggers targeted probe injection, runtime tracing, repair, and re-execution of the complete union. In this case, no new counterexample is found, so <code>Φ<sub>trace</sub></code> returns <code>c<sub>ver</sub></code> unchanged as <code>c*</code>.</p>
+        </div>
+        <div class="table-wrap" style="margin-top:13px">
+          <table>
+            <thead><tr><th>Validation suite</th><th>Purpose</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td><code>T<sub>pub</sub></code></td><td>Regression against the three task examples</td><td class="pass">3 / 3 passed</td></tr>
+              <tr><td><code>T<sub>pbt</sub></code></td><td>Requirement semantics and input preservation</td><td class="pass">No counterexample</td></tr>
+              <tr><td><code>T<sub>pub</sub> ∪ T<sub>pbt</sub></code></td><td>Final requirement validation through <code>Φ<sub>trace</sub></code></td><td class="pass">Validated</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="result-strip"><span>Public tests: 3/3</span><span>No property counterexample</span><span>No regression</span><span>Final code: c*</span></div>
+      </div>
+    </section>
+
+    <section class="analysis">
+      <span class="step">Reviewer-oriented analysis</span>
+      <h2>What This Case Demonstrates</h2>
+      <div class="analysis-grid">
+        <div class="analysis-item">
+          <h3>Early error interception</h3>
+          <p>The defect is introduced during design-to-code translation and is caught by the symmetric design-verification stage before final delivery.</p>
+        </div>
+        <div class="analysis-item">
+          <h3>Observation over simulation</h3>
+          <p>The decisive evidence is <code>visited_indices=[0]</code>. The interpreter supplies the state transition; the model only reasons over observed facts.</p>
+        </div>
+        <div class="analysis-item">
+          <h3>High-signal repair</h3>
+          <p>Targeted probes distinguish premature termination from data-structure faults, enabling a one-line repair rather than speculative rewrites.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>ViViCoder · AAAI Supplementary Case Study</footer>
+  </main>
+</body>
+</html>

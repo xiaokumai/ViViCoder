@@ -1,0 +1,4 @@
+max_iters: 5
+trace_level: block
+execution_timeout: 10
+max_trace_blocks: 10
